@@ -102,7 +102,7 @@ function operaterSwitcher(op)
 		if gpio.read(sw.config.swPin) == gpio.LOW then
 			stat = "OFF"
 		end
-	else 
+	elseif op == "off" then 
 		gpio.write(sw.config.swPin, gpio.LOW)
 		blinkLED(3000)
 	end
@@ -163,6 +163,27 @@ function startTcpService()
 
 end
 
+function buildGuiOpHtml()
+	local s1 = "checked"
+	local s2 = ""
+	local turl = sw.config.IP .. ":" .. sw.config.tcpPort
+
+	if operaterSwitcher("stat") == "OFF" then
+		s1 = ""
+		s2 = "checked"
+	end
+
+	local htmlstr = string.format("<html><body>\
+<form action=\"http://%s/op?cmd=\" method=\"get\">\
+<input type=\"radio\" name=\"cmd\" value=\"turnon\" %s>On<br>\
+<input type=\"radio\" name=\"cmd\" value=\"turnoff\" %s>Off<br>\
+<button type=\"submit\" name=\"\">确定\
+</form></body></html>", turl, s1, s2);
+
+	return htmlstr
+end
+
+
 function tcp_receiver_handler(sck, data)
 
 	local pin = sw.config.swPin
@@ -181,15 +202,20 @@ function tcp_receiver_handler(sck, data)
 		response = string.format("<html>SSID:%s<br>IP:%s<br>status:%s</br><html>", 
 		sw.config.SSID, sw.config.IP, stat)
 
+	elseif string.find(data, "/admin") then
+		response = buildGuiOpHtml()
+
 	elseif string.find(data, "/op%?cmd=help") then
 		local turl = sw.config.IP .. ":" .. sw.config.tcpPort
 		local uurl = sw.config.IP .. ":" .. sw.config.udpPort
-		response = string.format("<html>TurnOn\t:http://%s/op?cmd=turnon<br>\
+		response = string.format("<html>\
+		GuiSettings\t:http://%s/admin<br>\
+		TurnOn\t:http://%s/op?cmd=turnon<br>\
 		TurnOff\t:http://%s/op?cmd=turnoff<br>\
 		Status\t:http://%s/op?cmd=status<br>\
 		Setup\t:http://%s/setup?SSID=xxxx&PASS=xxxxxxxx<br>\
 		SSDP\t:udp:%s<br><html>",
-		turl, turl, turl, turl, uurl)
+		turl, turl, turl, turl, turl, uurl)
 	
 		-- EXAMPLE : GET /setup?SSID=test&PASS=123 HTTP/1.1
 	elseif string.find(data, "/setup%?") then
@@ -274,7 +300,7 @@ function beginConnectMode()
 	wifi.sta.connect()
 	print("Try to connect to WiFi(" .. sw.config.SSID .. ") ...")
 
-	tmr.alarm(sw.checkTimerId, 3000, tmr.ALARM_SEMI, 
+	tmr.alarm(sw.checkTimerId, 2000, tmr.ALARM_SEMI, 
 	function()
 
 		local scode = wifi.sta.status()	
